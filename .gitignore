@@ -1,0 +1,6 @@
+env/
+venv/
+en_core_web_sm/
+
+temp
+*.whl
