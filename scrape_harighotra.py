@@ -1,4 +1,4 @@
-from common_files.recipe_handler import Recipe
+from common_files.recipe_handler import Recipe, parameterize_ingredient_phrase
 from selenium import webdriver
 import re
 import string
@@ -19,36 +19,62 @@ driver = webdriver.Chrome(PATH, chrome_options=options)
 original_categories_handle = ''
 original_recipes_handle = ''
 
+import spacy
+nlp = spacy.load('en_core_web_sm')
 
-recipe_meal_type = Recipe.MealType("any time", "any part")
-recipe = Recipe("any title", recipe_meal_type)
-print(recipe.meal_type.part_of_meal)
+# recipe_meal_type = Recipe.MealType("any time", "any part")
+# recipe = Recipe("any title", recipe_meal_type)
+# print(recipe.meal_type.part_of_meal)
 
 current_category = ""
 
 
 def process_recipe_page(url):
+    # Switching windows
     script = "window.open('{0}', 'recipe_window')".format(url)
     driver.execute_script(script)
     original_recipes_handle = driver.window_handles[-2]
     driver.switch_to.window(driver.window_handles[-1])
-    recipe_title = driver.find_element(By.XPATH,"//h1").text
+
+    # Recipe Title and Alternate Titles
+    recipe_title = driver.find_element(By.XPATH, "//h1").text
     print("Title: {}".format(recipe_title))
     try:
-        recipe_alt_title=driver.find_element(By.XPATH,"//h2").text
+        recipe_alt_title = driver.find_element(By.XPATH, "//h2").text
         print("Alt Title: {}".format(recipe_alt_title))
     except:
-        pass
+        recipe_alt_title = ""
+    recipe = Recipe(recipe_title, recipe_alt_title)
+
+    # Recipe one liner description
+    try:
+        description_one_liner = driver.find_element(
+        By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "intro", " " ))]//h3""").text
+    except:
+        description_one_liner=""
     
+    # Recipe description paragraphs
+    description_paragraphs=[]
+    description_sections=driver.find_elements(By.XPATH,"""//*[contains(concat( " ", @class, " " ), concat( " ", "desc", " " ))]//p""")
+    for description_section in description_sections:
+        sentences=[i.text for i in nlp(description_section.text).sents]
+        description_paragraphs.append(sentences)
+    print(description_paragraphs)
+
+    # Recipe ingredients
+    ingredient_sections=driver.find_elements(By.XPATH,"""//*[(@id = "js-content")]//li""")
+    for ingredient_section in ingredient_sections:
+        ingredient_parameters=parameterize_ingredient_phrase(ingredient_section.text)
     driver.close()
     driver.switch_to.window(original_recipes_handle)
+
 
 def process_category_page(url):
     script = "window.open('{0}', 'category_window')".format(url)
     driver.execute_script(script)
     original_categories_handle = driver.window_handles[-2]
     driver.switch_to.window(driver.window_handles[-1])
-    current_category=driver.find_element(By.XPATH,"""//h1""").text
+    current_category = driver.find_element(By.XPATH, """//h1""").text
     view_all_button = driver.find_element(
         By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "view-all", " " ))]""").click()
 
@@ -70,7 +96,6 @@ driver.maximize_window()
 categories = driver.find_elements(
     By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "category", " " ))]""")
 
-# print(len)
 for category in categories:
     article = category.find_element(By.XPATH, """article/a""")
     category_url = article.get_attribute("href")

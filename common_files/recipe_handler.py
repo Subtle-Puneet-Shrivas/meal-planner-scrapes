@@ -60,19 +60,21 @@ class MealType:
 
 
 class Recipe:
-    def __init__(self, recipe_title):
+    def __init__(self, recipe_title, alternate_title=""):
         self.title = recipe_title
+        self.alternate_title = alternate_title
         self.ingredients = []
         self.steps = []
         self.metas = []
         self.media_contents = []
 
     class Ingredient:
-        def __init__(self, ingredient_id, name, quantity: float, unit: Unit):
+        def __init__(self, ingredient_id, name, quantity: float, unit: Unit, prep_hint: str):
             self.id = ingredient_id
             self.name = name
             self.quantity = quantity
             self.quantity_unit = unit
+            self.prep_hint = prep_hint
 
     class Step:
         def __init__(self, instruction, phase, time: timedelta, triggers, ingredients, resources):
@@ -98,3 +100,10 @@ class Recipe:
         def __init__(self, resource_title: str, url: str):
             self.resource_title = resource_title
             self.url = url
+
+def parameterize_ingredient_phrase(phrase):
+    name=""
+    quantity = ""
+    quantity_unit= ""
+    prep_hint = ""
+    return [name, quantity, quantity_unit, prep_hint]
