@@ -16,13 +16,15 @@ options.add_argument('--log-level=3')
 PATH = r"C:\\Users\\punee\\Downloads\\chromedriver_win32\\chromedriver.exe"
 driver = webdriver.Chrome(PATH, chrome_options=options)
 # driver=webdriver.Chrome(PATH)
+original_categories_handle = ''
+original_recipes_handle = ''
+
 
 recipe_meal_type = Recipe.MealType("any time", "any part")
 recipe = Recipe("any title", recipe_meal_type)
 print(recipe.meal_type.part_of_meal)
 
-original_categories_handle = ''
-original_recipes_handle = ''
+current_category = ""
 
 
 def process_recipe_page(url):
@@ -37,6 +39,7 @@ def process_recipe_page(url):
         print("Alt Title: {}".format(recipe_alt_title))
     except:
         pass
+    
     driver.close()
     driver.switch_to.window(original_recipes_handle)
 
@@ -45,6 +48,7 @@ def process_category_page(url):
     driver.execute_script(script)
     original_categories_handle = driver.window_handles[-2]
     driver.switch_to.window(driver.window_handles[-1])
+    current_category=driver.find_element(By.XPATH,"""//h1""").text
     view_all_button = driver.find_element(
         By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "view-all", " " ))]""").click()
 

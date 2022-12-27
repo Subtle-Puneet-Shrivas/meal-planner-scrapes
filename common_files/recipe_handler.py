@@ -48,6 +48,11 @@ eg. NutritionType(param=NutritionParam.PROTIEN, value=50, unit=Unit.GRAM)
         self.unit = unit
 
 
+class TimeType:
+    def __init__(self, value: int, unit: Unit):
+        self.value = value
+        self.unit = unit
+
 class MealType:
     def __init__(self, meal_time: MealTime, meal_part: MealPart):
         self.meal_time = meal_time
@@ -55,14 +60,11 @@ class MealType:
 
 
 class Recipe:
-    def __init__(self, recipe_title, meal_type):
+    def __init__(self, recipe_title):
         self.title = recipe_title
         self.ingredients = []
         self.steps = []
-        self.resources = []
         self.metas = []
-        self.nutrition_values = []
-        self.meal_type = meal_type
         self.media_contents = []
 
     class Ingredient:
@@ -81,11 +83,6 @@ class Recipe:
             self.triggers = triggers
             self.ingredients = ingredients
             self.resources = resources
-
-    class Resource:
-        def __init__(self, utensil, tool):
-            self.utensil = utensil
-            self.tool = tool
 
     class Meta:
         def __init__(self, cuisine: str, time_to_cook: timedelta, nutritional_values: _type.List[NutritionType], ratings: float, meal_type: MealType, regional_info, description):
