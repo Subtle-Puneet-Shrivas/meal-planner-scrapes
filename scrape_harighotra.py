@@ -1,3 +1,4 @@
+import spacy
 from common_files.recipe_handler import Recipe, parameterize_ingredient_phrase
 from selenium import webdriver
 import re
@@ -19,14 +20,14 @@ driver = webdriver.Chrome(PATH, chrome_options=options)
 original_categories_handle = ''
 original_recipes_handle = ''
 
-import spacy
 nlp = spacy.load('en_core_web_sm')
 
 # recipe_meal_type = Recipe.MealType("any time", "any part")
 # recipe = Recipe("any title", recipe_meal_type)
 # print(recipe.meal_type.part_of_meal)
 
-current_category = ""
+current_cuisine = ""
+current_meal_type = ""
 
 
 def process_recipe_page(url):
@@ -49,22 +50,90 @@ def process_recipe_page(url):
     # Recipe one liner description
     try:
         description_one_liner = driver.find_element(
-        By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "intro", " " ))]//h3""").text
+            By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "intro", " " ))]//h3""").text
     except:
-        description_one_liner=""
-    
+        description_one_liner = ""
+
     # Recipe description paragraphs
-    description_paragraphs=[]
-    description_sections=driver.find_elements(By.XPATH,"""//*[contains(concat( " ", @class, " " ), concat( " ", "desc", " " ))]//p""")
+    description_paragraphs = []
+    description_sections = driver.find_elements(
+        By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "desc", " " ))]//p""")
     for description_section in description_sections:
-        sentences=[i.text for i in nlp(description_section.text).sents]
+        sentences = [i.text for i in nlp(description_section.text).sents]
         description_paragraphs.append(sentences)
     print(description_paragraphs)
 
     # Recipe ingredients
-    ingredient_sections=driver.find_elements(By.XPATH,"""//*[(@id = "js-content")]//li""")
+    ingredient_sections = driver.find_elements(
+        By.XPATH, """//*[(@id = "js-content")]//li""")
     for ingredient_section in ingredient_sections:
-        ingredient_parameters=parameterize_ingredient_phrase(ingredient_section.text)
+        ingredient_parameters = parameterize_ingredient_phrase(
+            ingredient_section.text)
+        print(ingredient_parameters)
+
+    # Recipe steps
+    method_button = driver.find_element(By.XPATH,"""/html/body/div[3]/div[3]/div[1]/div[1]/div[6]/ul/li[2]""").click()
+    method_sections = driver.find_elements(By.XPATH, """//*[(@id = "js-content")]//li""")
+    for method_section in method_sections:
+        instruction = method_section.text
+        # TODO add functions for parsing remaining step information
+        print(instruction)
+
+    # Recipe metas
+    info_section_handles = driver.find_elements(By.XPATH,"""//*[contains(concat( " ", @class, " " ), concat( " ", "info", " " ))]""")
+    info_section_text=[]
+    dietary_info=[]
+    for info_section_handle in info_section_handles:
+        info_section_text.append(info_section_handle.text)
+    texts = info_section_text[0].split()
+    for i,text in enumerate(texts):
+        if(text=="HEAT"):
+            heat = texts[i+1]
+        if(text=="SERVES"):
+            serves = texts[i+1]
+        if(text=="PREP"):
+            prep_time = texts[i+1]
+        if(text=="COOK"):
+            cook_time = texts[i+1]
+        if(text=="DIETARY"):
+            n=2
+            while((i+n)<len(texts)):
+                if(texts[i+n]=="PREP"):
+                    break
+                else:
+                    dietary_info.append(texts[i+n])
+                n=n+1
+    try:print("heat: ", heat) 
+    except:pass
+    try:print("serves: ", serves)
+    except:pass
+    try:print("dietary infos: ", dietary_info)
+    except:pass
+    try:print("prep_time: ", prep_time)
+    except:pass
+    try:print("cook_time: ", cook_time)
+    except:pass
+
+    # Nutrition values
+    nutritional_value_sections = driver.find_elements(By.XPATH,"""//td""")
+    params = []
+    units = []
+    values = []
+    for nutritional_value_section in nutritional_value_sections:
+        print(nutritional_value_section.text)
+        if(nutritional_value_section.text.replace(".","",1).isnumeric()):
+            values.append(nutritional_value_section.text)
+        else:
+            unit_found = ""
+            try:
+                unit_found=(re.search('\(([^)]+)', nutritional_value_section.text).group(0).replace("(",""))
+            except:
+                pass
+            units.append(unit_found)
+            params.append(nutritional_value_section.text.replace(unit_found,"").replace("(","").replace(")","").replace("of which",""))
+    print(params)
+    print(units)
+    print(values)
     driver.close()
     driver.switch_to.window(original_recipes_handle)
 
@@ -74,7 +143,10 @@ def process_category_page(url):
     driver.execute_script(script)
     original_categories_handle = driver.window_handles[-2]
     driver.switch_to.window(driver.window_handles[-1])
-    current_category = driver.find_element(By.XPATH, """//h1""").text
+    current_category = driver.find_element(By.XPATH, """//h1""").text.split()
+    current_cuisine = current_category[0]
+    current_meal_type = current_category[1]
+
     view_all_button = driver.find_element(
         By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "view-all", " " ))]""").click()
 

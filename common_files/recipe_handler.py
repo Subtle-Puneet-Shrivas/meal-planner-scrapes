@@ -2,7 +2,13 @@ from enum import Enum
 import spacy
 from datetime import datetime, timedelta
 import typing as _type
+import re
 nlp = spacy.load('en_core_web_sm')
+
+quantity_pos = ["NUM"]
+quantity_tag = ["CD"]
+quantity_identifiers = ["¼","½","¾","⅓","⅔","⅕","⅖","⅗","⅘","⅙","⅚","⅛","⅜","⅝","⅞"]
+quantity_unit_identifiers = ["g","gms","grams","l","litres","ml","mL","L","dl","dL","teaspoon","tablespoon","cup","pint","quart","quarters","gallon","mg","pound","ounce","mm","cm","mililitres","kg","kilograms","tsp","tbsp"]
 
 
 class MealTime(Enum):
@@ -101,9 +107,40 @@ class Recipe:
             self.resource_title = resource_title
             self.url = url
 
+
+def get_quantity_identifier_regexp(quantity_identifiers):
+    re_quantity_identifier_str = '\w*[' + ''.join(quantity_identifiers) + ']\w*'
+    quantity_identifier_regexp = '('+re_quantity_identifier_str+')'
+    return quantity_identifier_regexp
+
+def get_quantity_unit_identifier_regexp(quantity_unit_identifiers):
+    re_quantity_unit_identifier_str = '(' + '|'.join(quantity_unit_identifiers) + ')'
+    quantity_unit_identifier_regexp = re_quantity_unit_identifier_str
+    return quantity_unit_identifier_regexp
+
 def parameterize_ingredient_phrase(phrase):
-    name=""
-    quantity = ""
-    quantity_unit= ""
-    prep_hint = ""
+    # TODO add ingredient name and prep hint segregator
+    quantity_identifier_regexp = get_quantity_identifier_regexp(quantity_identifiers)
+    quantity_unit_identifier_regexp = get_quantity_unit_identifier_regexp(quantity_unit_identifiers)
+    name = []
+    quantity = []
+    quantity_unit = []
+    prep_hint = []
+    doc = nlp(phrase)
+    deleted_tokens=[]
+    for token in doc:
+        if((token.pos_ in quantity_pos) or (token.tag_ in quantity_tag) or (re.fullmatch(quantity_identifier_regexp, token.text))):
+            quantity.append(token.text)
+            # phrase = phrase[:token.idx]+phrase[token.idx + len(token.text):]
+            deleted_tokens.append(token.i)
+        elif(re.fullmatch(quantity_unit_identifier_regexp, token.text)):
+            quantity_unit.append(token.text)
+            # phrase = phrase[:token.idx]+phrase[token.idx + len(token.text):]
+            deleted_tokens.append(token.i)
+    remaining_phrase = []
+    for token in doc:
+        if token.i not in deleted_tokens:
+            remaining_phrase.append(token.text + " ")
+    doc= nlp("".join(remaining_phrase))
+    # print("Remaining Phrase: {}".format("".join(remaining_phrase)))
     return [name, quantity, quantity_unit, prep_hint]
