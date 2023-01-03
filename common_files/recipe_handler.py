@@ -1,5 +1,6 @@
 from enum import Enum
 import spacy
+import json
 from datetime import datetime, timedelta
 import typing as _type
 import re
@@ -7,8 +8,10 @@ nlp = spacy.load('en_core_web_sm')
 
 quantity_pos = ["NUM"]
 quantity_tag = ["CD"]
-quantity_identifiers = ["¼","½","¾","⅓","⅔","⅕","⅖","⅗","⅘","⅙","⅚","⅛","⅜","⅝","⅞"]
-quantity_unit_identifiers = ["g","gms","grams","l","litres","ml","mL","L","dl","dL","teaspoon","tablespoon","cup","pint","quart","quarters","gallon","mg","pound","ounce","mm","cm","mililitres","kg","kilograms","tsp","tbsp"]
+quantity_identifiers = ["¼", "½", "¾", "⅓", "⅔",
+                        "⅕", "⅖", "⅗", "⅘", "⅙", "⅚", "⅛", "⅜", "⅝", "⅞"]
+quantity_unit_identifiers = ["g", "gms", "grams", "l", "litres", "ml", "mL", "L", "dl", "dL", "teaspoon", "tablespoon", "cup",
+                             "pint", "quart", "quarters", "gallon", "mg", "pound", "ounce", "mm", "cm", "mililitres", "kg", "kilograms", "tsp", "tbsp"]
 
 
 class MealTime(Enum):
@@ -59,6 +62,7 @@ class TimeType:
         self.value = value
         self.unit = unit
 
+
 class MealType:
     def __init__(self, meal_time: MealTime, meal_part: MealPart):
         self.meal_time = meal_time
@@ -69,10 +73,22 @@ class Recipe:
     def __init__(self, recipe_title, alternate_title=""):
         self.title = recipe_title
         self.alternate_title = alternate_title
+        self.description = None
         self.ingredients = []
         self.steps = []
         self.metas = []
         self.media_contents = []
+
+    def reprJSON(self):
+        return dict(title=self.title, alternate_title=self.alternate_title, description=self.description, ingredients=self.ingredients, steps=self.steps, metas=self.metas, media_contents=self.media_contents)
+
+    class Description:
+        def __init__(self, one_liner, paragraphs):
+            self.one_liner = one_liner
+            self.paragraphs = paragraphs
+
+        def reprJSON(self):
+            return dict(one_liner=self.one_liner, paragraphs=self.paragraphs)
 
     class Ingredient:
         def __init__(self, ingredient_id, name, quantity: float, unit: Unit, prep_hint: str):
@@ -81,6 +97,9 @@ class Recipe:
             self.quantity = quantity
             self.quantity_unit = unit
             self.prep_hint = prep_hint
+
+        def reprJSON(self):
+            return dict(id=self.id, name=self.name, quantity=self.quantity, quantity_unit=self.quantity_unit, prep_hint=self.prep_hint)
 
     class Step:
         def __init__(self, instruction, phase, time: timedelta, triggers, ingredients, resources):
@@ -92,42 +111,57 @@ class Recipe:
             self.ingredients = ingredients
             self.resources = resources
 
+        def reprJSON(self):
+            return dict(media_contents = self.media_contents, instruction = self.instruction, phase=self.phase, time=self.time, triggers=self.triggers,ingredients = self.ingredients, resources = self.resources)
+
     class Meta:
-        def __init__(self, cuisine: str, time_to_cook: timedelta, nutritional_values: _type.List[NutritionType], ratings: float, meal_type: MealType, regional_info, description):
+        def __init__(self, cuisine: str, time_to_cook: timedelta, time_to_prep: timedelta, nutritional_values: _type.List[NutritionType], nutritional_tags , ratings: float, meal_type: MealType, regional_info):
             self.cuisine = cuisine
             self.time_to_cook = time_to_cook
+            self.time_to_prep = time_to_prep
             self.nutritional_values = nutritional_values
+            self.nutritional_tags = nutritional_tags
             self.ratings = ratings
             self.meal_type = meal_type
             self.regional_info = regional_info
-            self.description = description
+        
+        def reprJSON(self):
+            return dict(cuisine=self.cuisine, time_to_cook=self.time_to_cook, time_to_prep=self.time_to_prep, nutritional_values= self.nutritional_values, ratings=self.ratings, meal_type=self.meal_type,regional_info=self.regional_info)
 
     class MediaContent:
         def __init__(self, resource_title: str, url: str):
             self.resource_title = resource_title
             self.url = url
+        def reprJSON(self):
+            return dict(resource_title =self.resource_title, url = self.url)
 
 
 def get_quantity_identifier_regexp(quantity_identifiers):
-    re_quantity_identifier_str = '\w*[' + ''.join(quantity_identifiers) + ']\w*'
+    re_quantity_identifier_str = '\w*[' + \
+        ''.join(quantity_identifiers) + ']\w*'
     quantity_identifier_regexp = '('+re_quantity_identifier_str+')'
     return quantity_identifier_regexp
 
+
 def get_quantity_unit_identifier_regexp(quantity_unit_identifiers):
-    re_quantity_unit_identifier_str = '(' + '|'.join(quantity_unit_identifiers) + ')'
+    re_quantity_unit_identifier_str = '(' + \
+        '|'.join(quantity_unit_identifiers) + ')'
     quantity_unit_identifier_regexp = re_quantity_unit_identifier_str
     return quantity_unit_identifier_regexp
 
+
 def parameterize_ingredient_phrase(phrase):
     # TODO add ingredient name and prep hint segregator
-    quantity_identifier_regexp = get_quantity_identifier_regexp(quantity_identifiers)
-    quantity_unit_identifier_regexp = get_quantity_unit_identifier_regexp(quantity_unit_identifiers)
+    quantity_identifier_regexp = get_quantity_identifier_regexp(
+        quantity_identifiers)
+    quantity_unit_identifier_regexp = get_quantity_unit_identifier_regexp(
+        quantity_unit_identifiers)
     name = []
     quantity = []
     quantity_unit = []
-    prep_hint = []
+    prep_hint = ""
     doc = nlp(phrase)
-    deleted_tokens=[]
+    deleted_tokens = []
     for token in doc:
         if((token.pos_ in quantity_pos) or (token.tag_ in quantity_tag) or (re.fullmatch(quantity_identifier_regexp, token.text))):
             quantity.append(token.text)
@@ -141,6 +175,14 @@ def parameterize_ingredient_phrase(phrase):
     for token in doc:
         if token.i not in deleted_tokens:
             remaining_phrase.append(token.text + " ")
-    doc= nlp("".join(remaining_phrase))
+    doc = nlp("".join(remaining_phrase))
     # print("Remaining Phrase: {}".format("".join(remaining_phrase)))
     return [name, quantity, quantity_unit, prep_hint]
+
+
+class ComplexEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, 'reprJSON'):
+            return obj.reprJSON()
+        else:
+            return json.JSONEncoder.default(self, obj)
