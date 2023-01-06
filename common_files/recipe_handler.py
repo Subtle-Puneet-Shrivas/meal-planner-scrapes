@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 import typing as _type
 import re
-nlp = spacy.load('en_core_web_sm')
+nlp = spacy.load('en_core_web_lg')
 
 quantity_pos = ["NUM"]
 quantity_tag = ["CD"]
@@ -151,33 +151,63 @@ def get_quantity_unit_identifier_regexp(quantity_unit_identifiers):
 
 
 def parameterize_ingredient_phrase(phrase):
-    # TODO add ingredient name and prep hint segregator
     quantity_identifier_regexp = get_quantity_identifier_regexp(
         quantity_identifiers)
     quantity_unit_identifier_regexp = get_quantity_unit_identifier_regexp(
         quantity_unit_identifiers)
     name = []
+    name_string = ""
     quantity = []
     quantity_unit = []
+    ingredient = []
     prep_hint = ""
+    phrase = " ".join(re.split('(\d+)',phrase))
     doc = nlp(phrase)
+    # print("-"*50)
+    # print(phrase)
     deleted_tokens = []
+    indices = {c.strip().replace(",", ""): i for i,
+               c in enumerate(phrase.split())}
+    # print(indices)
     for token in doc:
-        if((token.pos_ in quantity_pos) or (token.tag_ in quantity_tag) or (re.fullmatch(quantity_identifier_regexp, token.text))):
+        # print(token.text," ",token.pos_," ",token.dep_," ",token.tag_," ",token.is_stop)
+        if((token.pos_ in quantity_pos) or (token.tag_ in quantity_tag) or (re.fullmatch(quantity_identifier_regexp, token.lemma_))):
             quantity.append(token.text)
-            # phrase = phrase[:token.idx]+phrase[token.idx + len(token.text):]
             deleted_tokens.append(token.i)
-        elif(re.fullmatch(quantity_unit_identifier_regexp, token.text)):
+        elif(re.fullmatch(quantity_unit_identifier_regexp, token.lemma_)):
             quantity_unit.append(token.text)
-            # phrase = phrase[:token.idx]+phrase[token.idx + len(token.text):]
             deleted_tokens.append(token.i)
+        elif (((token.tag_ in ['NN']) or (token.dep_ in ['nsubj', 'ROOT'])) and (token.pos_ in ['NOUN', 'PROPN'])):
+            name.append(token.text)
+            for child in token.children:
+                # print(child.text," ",child.pos_," ",child.dep_)
+                if((child.dep_ in ['amod', 'compound'])):
+                    name.append(child.text)
+                    deleted_tokens.append(child.i)
+            # name.append(token.text)
+            # print(name)
+            name = [*set(name)]
+            # print("name set: ",name)
+            deleted_tokens.append(token.i)
+    try:
+        name_string = " ".join(sorted(name, key=indices.get))
+    except:
+        # print("indices exception")
+        name_string = " ".join(name)
+    for k in quantity_unit + quantity:
+        # print k
+        name_string = name_string.replace(k, "").strip()
     remaining_phrase = []
     for token in doc:
         if token.i not in deleted_tokens:
             remaining_phrase.append(token.text + " ")
     doc = nlp("".join(remaining_phrase))
+    prep_hint = "".join(remaining_phrase)
     # print("Remaining Phrase: {}".format("".join(remaining_phrase)))
-    return [name, quantity, quantity_unit, prep_hint]
+    return [name_string, " ".join(quantity),
+          " ".join(quantity_unit), prep_hint]
+    # return [" ".join(name), " ".join(quantity), " ".join(quantity_unit), prep_hint]
+    # return [name, quantity, quantity_unit, prep_hint]
 
 
 class ComplexEncoder(json.JSONEncoder):

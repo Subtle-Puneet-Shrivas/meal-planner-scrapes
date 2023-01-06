@@ -184,9 +184,9 @@ def process_recipe_page(url):
     recipe_object.metas = recipe_metas
 
     # print(json.dumps(recipe_object.reprJSON(), cls=ComplexEncoder, default=str))
-    print(dumps(recipe_object, indent=4))
+    print(dumps(recipe_object,primitives=True, indent=4))
     # print(sys.getsizeof(recipe_object))
-    print(postRecipe(json.loads(dumps(recipe_object,primitives=True,indent=4))))
+    # print(postRecipe(json.loads(dumps(recipe_object,primitives=True,indent=4)))) #Stores objects in mongodb
     # recipe_media_contents = []
     # recipe_object.media_contents = recipe_media_contents
     driver.close()
