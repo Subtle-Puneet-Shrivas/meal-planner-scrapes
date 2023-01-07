@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 import typing as _type
 import re
-nlp = spacy.load('en_core_web_lg')
+nlp = spacy.load('en_core_web_sm')
 
 quantity_pos = ["NUM"]
 quantity_tag = ["CD"]
