@@ -1,12 +1,15 @@
 import spacy
 from common_files.recipe_handler import Recipe, parameterize_ingredient_phrase, ComplexEncoder
 from common_files.mogodb_functions import postRecipe
+from common_files.s3_functions import upload_image_to_s3
 from selenium import webdriver
 import re
+import requests
+from PIL import Image
+from io import StringIO
 from datetime import datetime, timedelta
-import string
-import sys
 import json
+import time
 from json_tricks import dump, dumps, load, loads, strip_comments
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -176,19 +179,36 @@ def process_recipe_page(url):
     recipe_metas = Recipe.Meta(
         current_cuisine, cook_time, prep_time, nutritional_values, dietary_info, 0.0, current_meal_type, "")
 
+    #Get recipe images
+    resource_title=""
+    try:
+        image_url = driver.find_element(By.XPATH,"""//*[contains(concat( " ", @class, " " ), concat( " ", "col-md-8", " " ))]//*[contains(concat( " ", @class, " " ), concat( " ", "loaded", " " ))]""").get_attribute("src")
+        resource_title="img"
+    except:
+        try:
+            youtube_section = driver.find_element(By.XPATH,"""/html/body/div[1]/div/div[4]/div""").value_of_css_property("backround-image")
+        except:
+            youtube_section = driver.find_element(By.XPATH,"""/html/body/div/div/div[4]/div""").value_of_css_property("backround-image")
+        resource_title="yt_thumb"
+        image_url =re.split('[()]',youtube_section)[1]
+    r = requests.get(image_url).content
+    image_name = recipe_title.replace(" ","_") + "_" + time.strftime("%Y%m%d-%H%M%S") + ".jpg"
+    with open (image_name, 'wb') as f:
+        f.write(r)
+    upload_image_to_s3(image_name,image_name)
+    recipe_media_contents = Recipe.MediaContent(resource_title,image_name)
+
     # Create object
     recipe_object = Recipe(recipe_title, recipe_alt_title)
     recipe_object.description = recipe_description
     recipe_object.ingredients = recipe_ingredients
     recipe_object.steps = recipe_steps
     recipe_object.metas = recipe_metas
+    recipe_object.media_contents = recipe_media_contents
 
-    # print(json.dumps(recipe_object.reprJSON(), cls=ComplexEncoder, default=str))
-    print(dumps(recipe_object,primitives=True, indent=4))
-    # print(sys.getsizeof(recipe_object))
-    # print(postRecipe(json.loads(dumps(recipe_object,primitives=True,indent=4)))) #Stores objects in mongodb
-    # recipe_media_contents = []
-    # recipe_object.media_contents = recipe_media_contents
+    # print(dumps(recipe_object,primitives=True, indent=4))
+    print(postRecipe(json.loads(dumps(recipe_object,primitives=True,indent=4)))) #Stores objects in mongodb
+    
     driver.close()
     driver.switch_to.window(original_recipes_handle)
 
