@@ -7,4 +7,6 @@ def postRecipe(recipe_object):
     recipe_id = recipes.insert_one(recipe_object).inserted_id
     return recipe_id
 
+def getclientdb():
+    return db
 

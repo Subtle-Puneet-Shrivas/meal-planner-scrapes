@@ -9,9 +9,9 @@ nlp = spacy.load('en_core_web_sm')
 quantity_pos = ["NUM"]
 quantity_tag = ["CD"]
 quantity_identifiers = ["¼", "½", "¾", "⅓", "⅔",
-                        "⅕", "⅖", "⅗", "⅘", "⅙", "⅚", "⅛", "⅜", "⅝", "⅞"]
-quantity_unit_identifiers = ["g", "gms", "grams", "l", "litres", "ml", "mL", "L", "dl", "dL", "teaspoon", "tablespoon", "cup",
-                             "pint", "quart", "quarters", "gallon", "mg", "pound", "ounce", "mm", "cm", "mililitres", "kg", "kilograms", "tsp", "tbsp"]
+                        "⅕", "⅖", "⅗", "⅘", "⅙", "⅚", "⅛", "⅜", "⅝", "⅞", "\d+\/\d+"]
+quantity_unit_identifiers = ["g", "gms", "grams", "l", "litres", "ml", "mL", "L", "dl", "dL", "teaspoon", "tablespoon", "cup", "pinch", "pinche", "piece", "pieces", "pinches", "handful",
+                             "pint", "quart", "quarters", "gallon", "mg", "pound", "ounce", "mm", "cm", "c.", "tsp.", "Tsp.", "tbsp.", "Tbsp.", "mililitres", "kg", "kilograms", "tsp", "tbsp"]
 
 
 class MealTime(Enum):
@@ -112,10 +112,10 @@ class Recipe:
             self.resources = resources
 
         def reprJSON(self):
-            return dict(media_contents = self.media_contents, instruction = self.instruction, phase=self.phase, time=self.time, triggers=self.triggers,ingredients = self.ingredients, resources = self.resources)
+            return dict(media_contents=self.media_contents, instruction=self.instruction, phase=self.phase, time=self.time, triggers=self.triggers, ingredients=self.ingredients, resources=self.resources)
 
     class Meta:
-        def __init__(self, cuisine: str, time_to_cook: timedelta, time_to_prep: timedelta, nutritional_values: _type.List[NutritionType], nutritional_tags , ratings: float, meal_type: MealType, regional_info):
+        def __init__(self, cuisine: str, time_to_cook: timedelta, time_to_prep: timedelta, nutritional_values: _type.List[NutritionType], nutritional_tags, ratings: float, meal_type: MealType, regional_info):
             self.cuisine = cuisine
             self.time_to_cook = time_to_cook
             self.time_to_prep = time_to_prep
@@ -124,16 +124,17 @@ class Recipe:
             self.ratings = ratings
             self.meal_type = meal_type
             self.regional_info = regional_info
-        
+
         def reprJSON(self):
-            return dict(cuisine=self.cuisine, time_to_cook=self.time_to_cook, time_to_prep=self.time_to_prep, nutritional_values= self.nutritional_values, ratings=self.ratings, meal_type=self.meal_type,regional_info=self.regional_info)
+            return dict(cuisine=self.cuisine, time_to_cook=self.time_to_cook, time_to_prep=self.time_to_prep, nutritional_values=self.nutritional_values, ratings=self.ratings, meal_type=self.meal_type, regional_info=self.regional_info)
 
     class MediaContent:
         def __init__(self, resource_title: str, url: str):
             self.resource_title = resource_title
             self.url = url
+
         def reprJSON(self):
-            return dict(resource_title =self.resource_title, url = self.url)
+            return dict(resource_title=self.resource_title, url=self.url)
 
 
 def get_quantity_identifier_regexp(quantity_identifiers):
@@ -205,9 +206,7 @@ def parameterize_ingredient_phrase(phrase):
     prep_hint = "".join(remaining_phrase)
     # print("Remaining Phrase: {}".format("".join(remaining_phrase)))
     return [name_string, " ".join(quantity),
-          " ".join(quantity_unit), prep_hint]
-    # return [" ".join(name), " ".join(quantity), " ".join(quantity_unit), prep_hint]
-    # return [name, quantity, quantity_unit, prep_hint]
+          " ".join(quantity_unit), prep_hint.strip()]
 
 
 class ComplexEncoder(json.JSONEncoder):

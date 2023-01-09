@@ -31,6 +31,7 @@ def get_id(url):
     if pth:
         return pth[-1]
 
+
 options = Options()
 options.add_argument('--headless')
 options.add_argument('--disable-gpu')
@@ -172,7 +173,7 @@ def process_recipe_page(url):
         params = []
         units = []
         values = []
-        #TODO correct order of values
+        # TODO correct order of values
         for nutritional_value_section in nutritional_value_sections:
             # print(nutritional_value_section.text)
             if(nutritional_value_section.text.replace(".", "", 1).isnumeric()):
@@ -185,43 +186,53 @@ def process_recipe_page(url):
                 except:
                     pass
                 units.append(unit_found)
-                params.append(nutritional_value_section.text.replace(unit_found, "").replace(
-                    "(", "").replace(")", "").replace("of which", ""))
+                if(len(unit_found) < 2):
+                    params.append(nutritional_value_section.text.replace(
+                        "(", "").replace(")", "").replace("of which", ""))
+                else:
+                    params.append(nutritional_value_section.text.replace(unit_found, "").replace(
+                        "(", "").replace(")", "").replace("of which", ""))
         nutritional_values = []
         for i in range(len(params)):
-            nutritional_values.append({"param":params[i], "unit":units[i], "value":values[i]})
+            nutritional_values.append(
+                {"param": params[i], "unit": units[i], "value": values[i]})
         # print(nutritional_values)
         recipe_metas = Recipe.Meta(
             current_cuisine, cook_time, prep_time, nutritional_values, dietary_info, 0.0, current_meal_type, "")
-        
-        
-        #Get recipe images
-        resource_title=""
+
+        # Get recipe images
+        resource_title = ""
         # i_url = ""
         try:
             try:
-                image_url = driver.find_element(By.XPATH,"""//*[contains(concat( " ", @class, " " ), concat( " ", "col-md-8", " " ))]//*[contains(concat( " ", @class, " " ), concat( " ", "loaded", " " ))]""").get_attribute("src")
+                image_url = driver.find_element(
+                    By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "col-md-8", " " ))]//*[contains(concat( " ", @class, " " ), concat( " ", "loaded", " " ))]""").get_attribute("src")
             except:
-                image_url = driver.find_element(By.XPATH,"""/html/body/div[3]/div[3]/div[1]/div[1]/div[3]/picture/img""")
-            resource_title="img"
+                image_url = driver.find_element(
+                    By.XPATH, """/html/body/div[3]/div[3]/div[1]/div[1]/div[3]/picture/img""")
+            resource_title = "img"
         except:
             # youtube_section = driver.find_element(By.XPATH,"""/html/body/div[1]/div/div[4]/div""").value_of_css_property("backround-image")
             try:
                 # youtube_section = driver.find_element(By.XPATH,"""//*[contains(concat( " ", @class, " " ), concat( " ", "iframe-wrap", " " ))]//iframe""").value_of_css_property("backround-image")
-                iframe_obj=driver.find_element(By.XPATH,"""/html/body/div[3]/div[3]/div[1]/div[1]/div[3]/div/iframe""").get_attribute("src")
-                image_url="""https://i.ytimg.com/vi_webp/{}/maxresdefault.webp""".format(get_id(iframe_obj))
+                iframe_obj = driver.find_element(
+                    By.XPATH, """/html/body/div[3]/div[3]/div[1]/div[1]/div[3]/div/iframe""").get_attribute("src")
+                image_url = """https://i.ytimg.com/vi_webp/{}/maxresdefault.webp""".format(
+                    get_id(iframe_obj))
             except:
-                youtube_section = driver.find_element(By.XPATH,"""/html/body/div/div/div[4]/div""").value_of_css_property("backround-image")
-            resource_title="yt_thumb"
+                youtube_section = driver.find_element(
+                    By.XPATH, """/html/body/div/div/div[4]/div""").value_of_css_property("backround-image")
+            resource_title = "yt_thumb"
             # image_url =re.split('[()]',youtube_section)[1]
         r = requests.get(image_url).content
-        image_name = recipe_title.replace(" ","_") + "_" + time.strftime("%Y%m%d-%H%M%S") + ".jpg"
-        with open (image_name, 'wb') as f:
+        image_name = recipe_title.replace(
+            " ", "_") + "_" + time.strftime("%Y%m%d-%H%M%S") + ".jpg"
+        with open(image_name, 'wb') as f:
             f.write(r)
-        upload_image_to_s3(image_name,image_name) #stores image in s3
+        upload_image_to_s3(image_name, image_name)  # stores image in s3
         print(image_name)
         os.remove(image_name)
-        recipe_media_contents = Recipe.MediaContent(resource_title,image_name)
+        recipe_media_contents = Recipe.MediaContent(resource_title, image_name)
 
         # Create object
         recipe_object = Recipe(recipe_title, recipe_alt_title)
@@ -232,11 +243,11 @@ def process_recipe_page(url):
         recipe_object.media_contents = recipe_media_contents
 
         # print(dumps(recipe_object,primitives=True, indent=4))
-        print(postRecipe(json.loads(dumps(recipe_object,primitives=True,indent=4)))) #Stores objects in mongodb
-        
+        # Stores objects in mongodb
+        print(postRecipe(json.loads(dumps(recipe_object, primitives=True, indent=4))))
 
     except:
-        print("failed url:",url)
+        print("failed url:", url)
     driver.close()
     driver.switch_to.window(original_recipes_handle)
 
@@ -251,7 +262,6 @@ def process_category_page(url):
     current_meal_type = current_category[1]
     print("current_cuisine: {}".format(current_cuisine))
     print("current_meal_type: {}".format(current_meal_type))
-
 
     view_all_button = driver.find_element(
         By.XPATH, """//*[contains(concat( " ", @class, " " ), concat( " ", "view-all", " " ))]""").click()
